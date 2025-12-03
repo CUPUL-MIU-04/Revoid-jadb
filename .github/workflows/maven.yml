@@ -21,10 +21,27 @@ jobs:
         java-version: '11'
         distribution: 'temurin'
     
+    - name: Generate unique version (timestamp + commit)
+      id: version
+      run: |
+        # Usar timestamp YYYYMMDDHHMMSS para garantizar unicidad
+        TIMESTAMP=$(date +%Y%m%d%H%M%S)
+        COMMIT_SHORT=$(git rev-parse --short HEAD)
+        # Crear versión única: 1.2.1.timestamp-commit
+        UNIQUE_VERSION="1.2.1.$TIMESTAMP-$COMMIT_SHORT"
+        echo "unique_version=$UNIQUE_VERSION" >> $GITHUB_OUTPUT
+        echo "Versión única generada: $UNIQUE_VERSION"
+    
+    - name: Update pom.xml with unique version
+      run: |
+        # Actualizar pom.xml con la versión única
+        sed -i "s/<version>.*<\/version>/<version>${{ steps.version.outputs.unique_version }}<\/version>/" pom.xml
+        echo "✅ pom.xml actualizado a versión: ${{ steps.version.outputs.unique_version }}"
+    
     - name: Configure Maven settings
       run: |
         mkdir -p ~/.m2
-        cat > ~/.m2/settings.xml << EOF
+        cat > ~/.m2/settings.xml << 'EOF'
         <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                   xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0
@@ -38,26 +55,10 @@ jobs:
           </servers>
         </settings>
         EOF
+        echo "✅ Configuración Maven creada"
     
-    - name: Increment version to avoid conflict
+    - name: Build and Deploy
       run: |
-        # Incrementar el patch version automáticamente
-        CURRENT_VERSION=$(grep -oP '(?<=<version>).*(?=</version>)' pom.xml | head -1)
-        echo "Current version: $CURRENT_VERSION"
-        
-        # Incrementar el último número (patch)
-        MAJOR_MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f1-3)
-        PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f4)
-        NEW_PATCH=$((PATCH + 1))
-        NEW_VERSION="${MAJOR_MINOR}.${NEW_PATCH}"
-        
-        echo "New version: $NEW_VERSION"
-        
-        # Actualizar pom.xml
-        sed -i "s/<version>$CURRENT_VERSION<\/version>/<version>$NEW_VERSION<\/version>/" pom.xml
-    
-    - name: Build with Maven
-      run: mvn clean compile -DskipTests
-      
-    - name: Publish to GitHub Packages
-      run: mvn deploy -DskipTests
+        echo "🔨 Construyendo versión: ${{ steps.version.outputs.unique_version }}"
+        mvn clean deploy -DskipTests
+        echo "✅ ¡Publicación exitosa!"
