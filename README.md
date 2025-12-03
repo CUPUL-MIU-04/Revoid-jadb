@@ -140,5 +140,3 @@ Acknowledgements
 · Original JADB project by Samuel Carlsson
 · All contributors to the original project
 · ReVoid project team for maintaining this fork
-
-```
