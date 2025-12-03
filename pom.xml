@@ -1,3 +1,5 @@
+# Primero, asegúrate de que el pom.xml tenga TODAS las configuraciones necesarias
+cat > pom.xml << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -7,7 +9,10 @@
     <groupId>com.revoid</groupId>
     <artifactId>jadb</artifactId>
     <version>1.2.1.1</version>
-    <url>https://github.com/vidstige/jadb</url>
+    <packaging>jar</packaging>
+    <name>ReVoid JADB</name>
+    <description>JADB fork for ReVoid project</description>
+    <url>https://github.com/CUPUL-MIU-04/Revoid-jadb</url>
 
     <licenses>
         <license>
@@ -18,13 +23,27 @@
 
     <developers>
         <developer>
-            <id>vidstige</id>
-            <name>Samuel Carlsson</name>
-            <email>samuel.carlsson@gmai.com</email>
-            <url>https://github.com/vidstige</url>
+            <id>cupul-miu-04</id>
+            <name>CUPUL-MIU-04</name>
+            <url>https://github.com/CUPUL-MIU-04</url>
         </developer>
     </developers>
 
+    <scm>
+        <url>https://github.com/CUPUL-MIU-04/Revoid-jadb</url>
+        <connection>scm:git:git://github.com/CUPUL-MIU-04/Revoid-jadb.git</connection>
+        <developerConnection>scm:git:git@github.com:CUPUL-MIU-04/Revoid-jadb.git</developerConnection>
+    </scm>
+
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>GitHub Packages</name>
+            <url>https://maven.pkg.github.com/CUPUL-MIU-04/Revoid-jadb</url>
+        </repository>
+    </distributionManagement>
+
+    <!-- El resto de tu pom.xml original... -->
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
@@ -40,8 +59,6 @@
             <version>4.13.1</version>
             <scope>test</scope>
         </dependency>
-
-        <!-- https://mvnrepository.com/artifact/org.mockito/mockito-core -->
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
@@ -53,26 +70,11 @@
         <sourceDirectory>src</sourceDirectory>
         <testSourceDirectory>test</testSourceDirectory>
         <plugins>
-            <!-- Version plugin is a plugin which can:
-                  * Create report about all new versions for both code dependencies and maven plugins themselves
-                  * Update them automatically (mvn versions:use-latest-versions and so on)
-
-                 Usage - most commonly used patterns:
-                  * `mvn versions:help` - will show all available tasks for this plugin with short description
-                  * `mvn versions:dependency-updates-report` produces a report of those project dependencies which have newer versions available.
-                     Will be in 'target\site' folder
-                  * `mvn versions:plugin-updates-report` produces a report of those plugins which have newer versions available.
-                     Will be in 'target\site' folder
-                  * `mvn versions:use-latest-versions` searches the pom for all versions which have been a newer version and replaces them with the latest version.
-
-                 For more info see official [documentation](http://www.mojohaus.org/versions-maven-plugin/)
-            -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>versions-maven-plugin</artifactId>
                 <version>2.3</version>
             </plugin>
-
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -82,150 +84,8 @@
                     <target>1.7</target>
                 </configuration>
             </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-source-plugin</artifactId>
-                <version>3.0.1</version>
-                <executions>
-                    <execution>
-                        <phase>verify</phase>
-                        <goals>
-                            <goal>jar-no-fork</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-release-plugin</artifactId>
-                <version>2.5.3</version>
-                <configuration>
-                    <useReleaseProfile>false</useReleaseProfile>
-                    <releaseProfiles>release</releaseProfiles>
-                    <autoVersionSubmodules>true</autoVersionSubmodules>
-                    <goals>deploy</goals>
-                </configuration>
-                <dependencies>
-                    <dependency>
-                        <groupId>org.apache.maven.scm</groupId>
-                        <artifactId>maven-scm-provider-gitexe</artifactId>
-                        <version>1.8.1</version>
-                    </dependency>
-                </dependencies>
-            </plugin>
-            <plugin>
-                <groupId>org.jacoco</groupId>
-                <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.4</version>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>prepare-agent</goal>
-                        </goals>
-                    </execution>
-                    <execution>
-                        <id>report</id>
-                        <phase>test</phase>
-                        <goals>
-                            <goal>report</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.19.1</version>
-                <configuration>
-                    <includes>
-                        <include>**/*.java</include>
-                    </includes>
-                    <excludes>
-                        <!--Exclude integration tests -->
-                        <exclude>se.vidstige.jadb.test.integration.*</exclude>
-                        <!--Mocks and data-->
-                        <exclude>**/data/*</exclude>
-                        <exclude>**/fakes/*</exclude>
-                    </excludes>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-failsafe-plugin</artifactId>
-                <version>2.19.1</version>
-                <configuration>
-                    <includes>
-                        <include>**/*.java</include>
-                    </includes>
-                    <excludes>
-                        <!--Include only integration tests -->
-                        <include>se.vidstige.jadb.test.integration.*</include>
-                        <!--Mocks and data-->
-                        <exclude>**/data/*</exclude>
-                        <exclude>**/fakes/*</exclude>
-                    </excludes>
-                </configuration>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>integration-test</goal>
-                            <goal>verify</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
+            <!-- ... resto de plugins ... -->
         </plugins>
     </build>
-
-    <profiles>
-        <profile>
-            <id>release</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <artifactId>maven-source-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>attach-sources</id>
-                                <goals>
-                                    <goal>jar</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-javadoc-plugin</artifactId>
-                        <version>2.10.4</version>
-                        <executions>
-                            <execution>
-                                <id>attach-javadocs</id>
-                                <goals>
-                                    <goal>jar</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
-
-    <scm>
-        <url>scm:git:git@github.com:vidstige/jadb.git</url>
-        <connection>scm:git:git@github.com:vidstige/jadb.git</connection>
-        <developerConnection>scm:git:git@github.com:vidstige/jadb.git</developerConnection>
-        <tag>HEAD</tag>
-    </scm>
-
 </project>
-
-# Añadir distributionManagement al final del pom.xml, justo antes de </project>
-sed -i '/<\/project>/i\
-<distributionManagement>\
-    <repository>\
-        <id>github</id>\
-        <name>GitHub Packages</name>\
-        <url>https://maven.pkg.github.com/CUPUL-MIU-04/Revoid-jadb</url>\
-    </repository>\
-</distributionManagement>' pom.xml
+EOF
