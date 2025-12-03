@@ -21,22 +21,17 @@ jobs:
         java-version: '11'
         distribution: 'temurin'
     
-    - name: Generate unique version (timestamp + commit)
+    - name: Generate unique deploy version
       id: version
       run: |
-        # Usar timestamp YYYYMMDDHHMMSS para garantizar unicidad
+        # Usar un formato de versión Maven válido para deploy
+        # Formato: major.minor.patch-qualifier (el guion es importante)
         TIMESTAMP=$(date +%Y%m%d%H%M%S)
         COMMIT_SHORT=$(git rev-parse --short HEAD)
-        # Crear versión única: 1.2.1.timestamp-commit
-        UNIQUE_VERSION="1.2.1.$TIMESTAMP-$COMMIT_SHORT"
+        # Versión con formato Maven válido: 1.2.1-20251203131321-4faea77
+        UNIQUE_VERSION="1.2.1-$TIMESTAMP-$COMMIT_SHORT"
         echo "unique_version=$UNIQUE_VERSION" >> $GITHUB_OUTPUT
-        echo "Versión única generada: $UNIQUE_VERSION"
-    
-    - name: Update pom.xml with unique version
-      run: |
-        # Actualizar pom.xml con la versión única
-        sed -i "s/<version>.*<\/version>/<version>${{ steps.version.outputs.unique_version }}<\/version>/" pom.xml
-        echo "✅ pom.xml actualizado a versión: ${{ steps.version.outputs.unique_version }}"
+        echo "Versión única para deploy: $UNIQUE_VERSION"
     
     - name: Configure Maven settings
       run: |
@@ -55,10 +50,24 @@ jobs:
           </servers>
         </settings>
         EOF
-        echo "✅ Configuración Maven creada"
     
-    - name: Build and Deploy
+    - name: Deploy with unique version using altDeploymentRepository
       run: |
-        echo "🔨 Construyendo versión: ${{ steps.version.outputs.unique_version }}"
-        mvn clean deploy -DskipTests
+        echo "🔨 Publicando versión: ${{ steps.version.outputs.unique_version }}"
+        
+        # PRIMERO: Construir con la versión normal del pom.xml
+        mvn clean compile -DskipTests
+        
+        # SEGUNDO: Hacer deploy con versión personalizada SIN modificar pom.xml
+        mvn deploy:deploy-file \
+          -Durl=https://maven.pkg.github.com/CUPUL-MIU-04/Revoid-jadb \
+          -DrepositoryId=github \
+          -Dfile=target/jadb-1.2.1.3.jar \
+          -Dsources=target/jadb-1.2.1.3-sources.jar \
+          -DpomFile=pom.xml \
+          -DgroupId=com.revoid \
+          -DartifactId=jadb \
+          -Dversion=${{ steps.version.outputs.unique_version }} \
+          -DskipTests
+        
         echo "✅ ¡Publicación exitosa!"
