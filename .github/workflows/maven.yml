@@ -40,56 +40,82 @@ jobs:
         EOF
         echo "✅ Maven settings configured"
     
-    - name: Get current version and commit hash
-      id: vars
+    - name: Extract current version and generate unique version
+      id: version_info
       run: |
-        # Obtener versión actual del pom.xml
+        # Extraer versión actual del pom.xml
         CURRENT_VERSION=$(grep -oP '(?<=<version>).*(?=</version>)' pom.xml | head -1)
+        echo "Versión actual en pom.xml: $CURRENT_VERSION"
+        
         # Obtener hash del commit corto
         COMMIT_SHORT=$(git rev-parse --short HEAD)
-        echo "current_version=$CURRENT_VERSION" >> $GITHUB_ENV
-        echo "commit_short=$COMMIT_SHORT" >> $GITHUB_ENV
-        echo "📋 Current version: $CURRENT_VERSION"
-        echo "🔗 Commit hash: $COMMIT_SHORT"
-    
-    - name: Create unique deployment version
-      id: unique_version
-      run: |
-        # Crear versión única para evitar conflictos 409
+        echo "Commit SHA corto: $COMMIT_SHORT"
+        
+        # Crear timestamp
         TIMESTAMP=$(date +%Y%m%d%H%M%S)
+        echo "Timestamp: $TIMESTAMP"
+        
+        # Crear versión única CORRECTAMENTE
         UNIQUE_VERSION="${CURRENT_VERSION}.${TIMESTAMP}-${COMMIT_SHORT}"
-        echo "unique_version=$UNIQUE_VERSION" >> $GITHUB_ENV
-        echo "🎯 Unique deployment version: $UNIQUE_VERSION"
+        echo "Versión única generada: $UNIQUE_VERSION"
+        
+        # Guardar en output del step
+        echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+        echo "unique_version=$UNIQUE_VERSION" >> $GITHUB_OUTPUT
+        
+        # También exportar como variable de entorno para pasos siguientes
+        echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
+        echo "UNIQUE_VERSION=$UNIQUE_VERSION" >> $GITHUB_ENV
+    
+    - name: Debug variables
+      run: |
+        echo "DEBUG - Versión actual: ${{ steps.version_info.outputs.current_version }}"
+        echo "DEBUG - Versión única: ${{ steps.version_info.outputs.unique_version }}"
+        echo "DEBUG - ENV Versión actual: $CURRENT_VERSION"
+        echo "DEBUG - ENV Versión única: $UNIQUE_VERSION"
     
     - name: Create temporary pom.xml with unique version
       run: |
-        # Crear un pom.xml temporal con la versión única
-        # Usamos .tmp para no modificar el original
-        cp pom.xml pom.xml.original
-        sed -i "s|<version>${CURRENT_VERSION}</version>|<version>${UNIQUE_VERSION}</version>|" pom.xml
-        echo "📄 Created temporary pom.xml with version: $UNIQUE_VERSION"
+        echo "Creando pom.xml temporal con versión única..."
+        echo "Versión original: ${{ steps.version_info.outputs.current_version }}"
+        echo "Versión única: ${{ steps.version_info.outputs.unique_version }}"
+        
+        # Crear backup
+        cp pom.xml pom.xml.backup
+        
+        # Actualizar versión en pom.xml (usando un delimitador diferente)
+        sed -i.bak "s#<version>${{ steps.version_info.outputs.current_version }}</version>#<version>${{ steps.version_info.outputs.unique_version }}</version>#" pom.xml
+        
+        # Verificar el cambio
+        echo "Contenido actual de pom.xml (primeras 5 líneas):"
+        head -20 pom.xml | grep -A2 -B2 "<version>"
     
-    - name: Build and Deploy with unique version
+    - name: Build with unique version
       run: |
-        echo "🚀 Building and deploying version: $UNIQUE_VERSION"
+        echo "🚀 Construyendo con versión única: ${{ steps.version_info.outputs.unique_version }}"
+        mvn clean compile -DskipTests
+        echo "✅ Build completado"
+    
+    - name: Deploy with unique version
+      run: |
+        echo "📦 Desplegando versión: ${{ steps.version_info.outputs.unique_version }}"
         
-        # 1. Primero hacer clean y package con la versión única
-        mvn clean package -DskipTests
-        
-        # 2. Luego hacer deploy con la versión única
+        # Deploy usando la versión única
         mvn deploy -DskipTests \
-          -DaltDeploymentRepository=github::default::https://maven.pkg.github.com/CUPUL-MIU-04/Revoid-jadb
+          -DaltDeploymentRepository=github::https://maven.pkg.github.com/CUPUL-MIU-04/Revoid-jadb
         
-        echo "✅ Successfully deployed version: $UNIQUE_VERSION"
+        echo "✅ ¡Deploy exitoso!"
     
     - name: Restore original pom.xml
+      if: always()
       run: |
-        # Restaurar el pom.xml original
-        mv pom.xml.original pom.xml
-        echo "🔄 Restored original pom.xml with version: $CURRENT_VERSION"
+        echo "🔄 Restaurando pom.xml original..."
+        mv pom.xml.backup pom.xml
+        echo "✅ pom.xml restaurado a versión: ${{ steps.version_info.outputs.current_version }}"
     
     - name: Verify deployment
+      if: success()
       run: |
-        echo "🎉 Deployment completed successfully!"
-        echo "📦 Package URL: https://github.com/CUPUL-MIU-04/Revoid-jadb/packages"
-        echo "🏷️  Version deployed: $UNIQUE_VERSION"
+        echo "🎉 ¡Despliegue completado exitosamente!"
+        echo "📊 Versión desplegada: ${{ steps.version_info.outputs.unique_version }}"
+        echo "🔗 URL del paquete: https://github.com/CUPUL-MIU-04/Revoid-jadb/packages"
