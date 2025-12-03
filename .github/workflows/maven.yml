@@ -20,9 +20,6 @@ jobs:
       with:
         java-version: '11'
         distribution: 'temurin'
-        server-id: github  # Esto es crucial para la autenticación
-        server-username: GITHUB_ACTOR
-        server-password: GITHUB_TOKEN
     
     - name: Configure Maven settings
       run: |
@@ -35,18 +32,32 @@ jobs:
           <servers>
             <server>
               <id>github</id>
-              <username>\${env.GITHUB_ACTOR}</username>
-              <password>\${env.GITHUB_TOKEN}</password>
+              <username>${{ github.actor }}</username>
+              <password>${{ secrets.GITHUB_TOKEN }}</password>
             </server>
           </servers>
         </settings>
         EOF
+    
+    - name: Increment version to avoid conflict
+      run: |
+        # Incrementar el patch version automáticamente
+        CURRENT_VERSION=$(grep -oP '(?<=<version>).*(?=</version>)' pom.xml | head -1)
+        echo "Current version: $CURRENT_VERSION"
+        
+        # Incrementar el último número (patch)
+        MAJOR_MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f1-3)
+        PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f4)
+        NEW_PATCH=$((PATCH + 1))
+        NEW_VERSION="${MAJOR_MINOR}.${NEW_PATCH}"
+        
+        echo "New version: $NEW_VERSION"
+        
+        # Actualizar pom.xml
+        sed -i "s/<version>$CURRENT_VERSION<\/version>/<version>$NEW_VERSION<\/version>/" pom.xml
     
     - name: Build with Maven
       run: mvn clean compile -DskipTests
       
     - name: Publish to GitHub Packages
       run: mvn deploy -DskipTests
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GITHUB_ACTOR: ${{ github.actor }}
