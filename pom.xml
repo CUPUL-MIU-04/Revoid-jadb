@@ -219,3 +219,13 @@
     </scm>
 
 </project>
+
+# Añadir distributionManagement al final del pom.xml, justo antes de </project>
+sed -i '/<\/project>/i\
+<distributionManagement>\
+    <repository>\
+        <id>github</id>\
+        <name>GitHub Packages</name>\
+        <url>https://maven.pkg.github.com/CUPUL-MIU-04/Revoid-jadb</url>\
+    </repository>\
+</distributionManagement>' pom.xml
