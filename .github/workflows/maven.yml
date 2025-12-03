@@ -21,19 +21,7 @@ jobs:
         java-version: '11'
         distribution: 'temurin'
     
-    - name: Generate unique deploy version
-      id: version
-      run: |
-        # Usar un formato de versión Maven válido para deploy
-        # Formato: major.minor.patch-qualifier (el guion es importante)
-        TIMESTAMP=$(date +%Y%m%d%H%M%S)
-        COMMIT_SHORT=$(git rev-parse --short HEAD)
-        # Versión con formato Maven válido: 1.2.1-20251203131321-4faea77
-        UNIQUE_VERSION="1.2.1-$TIMESTAMP-$COMMIT_SHORT"
-        echo "unique_version=$UNIQUE_VERSION" >> $GITHUB_OUTPUT
-        echo "Versión única para deploy: $UNIQUE_VERSION"
-    
-    - name: Configure Maven settings
+    - name: Configure Maven settings for GitHub Packages
       run: |
         mkdir -p ~/.m2
         cat > ~/.m2/settings.xml << 'EOF'
@@ -50,24 +38,58 @@ jobs:
           </servers>
         </settings>
         EOF
+        echo "✅ Maven settings configured"
     
-    - name: Deploy with unique version using altDeploymentRepository
+    - name: Get current version and commit hash
+      id: vars
       run: |
-        echo "🔨 Publicando versión: ${{ steps.version.outputs.unique_version }}"
+        # Obtener versión actual del pom.xml
+        CURRENT_VERSION=$(grep -oP '(?<=<version>).*(?=</version>)' pom.xml | head -1)
+        # Obtener hash del commit corto
+        COMMIT_SHORT=$(git rev-parse --short HEAD)
+        echo "current_version=$CURRENT_VERSION" >> $GITHUB_ENV
+        echo "commit_short=$COMMIT_SHORT" >> $GITHUB_ENV
+        echo "📋 Current version: $CURRENT_VERSION"
+        echo "🔗 Commit hash: $COMMIT_SHORT"
+    
+    - name: Create unique deployment version
+      id: unique_version
+      run: |
+        # Crear versión única para evitar conflictos 409
+        TIMESTAMP=$(date +%Y%m%d%H%M%S)
+        UNIQUE_VERSION="${CURRENT_VERSION}.${TIMESTAMP}-${COMMIT_SHORT}"
+        echo "unique_version=$UNIQUE_VERSION" >> $GITHUB_ENV
+        echo "🎯 Unique deployment version: $UNIQUE_VERSION"
+    
+    - name: Create temporary pom.xml with unique version
+      run: |
+        # Crear un pom.xml temporal con la versión única
+        # Usamos .tmp para no modificar el original
+        cp pom.xml pom.xml.original
+        sed -i "s|<version>${CURRENT_VERSION}</version>|<version>${UNIQUE_VERSION}</version>|" pom.xml
+        echo "📄 Created temporary pom.xml with version: $UNIQUE_VERSION"
+    
+    - name: Build and Deploy with unique version
+      run: |
+        echo "🚀 Building and deploying version: $UNIQUE_VERSION"
         
-        # PRIMERO: Construir con la versión normal del pom.xml
-        mvn clean compile -DskipTests
+        # 1. Primero hacer clean y package con la versión única
+        mvn clean package -DskipTests
         
-        # SEGUNDO: Hacer deploy con versión personalizada SIN modificar pom.xml
-        mvn deploy:deploy-file \
-          -Durl=https://maven.pkg.github.com/CUPUL-MIU-04/Revoid-jadb \
-          -DrepositoryId=github \
-          -Dfile=target/jadb-1.2.1.3.jar \
-          -Dsources=target/jadb-1.2.1.3-sources.jar \
-          -DpomFile=pom.xml \
-          -DgroupId=com.revoid \
-          -DartifactId=jadb \
-          -Dversion=${{ steps.version.outputs.unique_version }} \
-          -DskipTests
+        # 2. Luego hacer deploy con la versión única
+        mvn deploy -DskipTests \
+          -DaltDeploymentRepository=github::default::https://maven.pkg.github.com/CUPUL-MIU-04/Revoid-jadb
         
-        echo "✅ ¡Publicación exitosa!"
+        echo "✅ Successfully deployed version: $UNIQUE_VERSION"
+    
+    - name: Restore original pom.xml
+      run: |
+        # Restaurar el pom.xml original
+        mv pom.xml.original pom.xml
+        echo "🔄 Restored original pom.xml with version: $CURRENT_VERSION"
+    
+    - name: Verify deployment
+      run: |
+        echo "🎉 Deployment completed successfully!"
+        echo "📦 Package URL: https://github.com/CUPUL-MIU-04/Revoid-jadb/packages"
+        echo "🏷️  Version deployed: $UNIQUE_VERSION"
